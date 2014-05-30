@@ -1,0 +1,30 @@
+.col-md-5
+	.row
+		label Alert Message: 
+		br
+		textarea.col-md-12(rows="5" ng-model="alert") 
+	.row
+		table(class="table table-hover")
+			thead
+				th Group Name
+				th
+				th
+			tbody
+				tr(ng-if="groupArr=={}") 
+					td No groups found.
+				tr(ng-repeat="(key, group) in groupArr" ng-click="selectGroup(key, group.name)")
+					td {{group.name}}
+					td 
+						input(type='checkbox' ng-model="sms[key]" ng-click='createSmsAlertList(sms[key], key)')
+						|  SMS
+					td 
+						input(type='checkbox' ng-model='voice[key]' ng-click='createVoiceAlertList(voice[key], key)')
+						|  Voice
+	.row
+		button.btn.btn-danger(ng-click='sendGroupAlert()' ng-class="{disabled: (alert.trim()=='' || (smsCount+voiceCount<1))}") Send Group Alert
+.col-md-6.col-md-offset-1
+	.row
+		label Alert Log:
+		br
+		textarea(readonly adjust-scroll rows="20" ng-model="log" class="col-lg-11 log-text") 
+

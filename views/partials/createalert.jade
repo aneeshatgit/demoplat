@@ -1,14 +1,14 @@
 div
-	div(class="col-lg-4")
+	div(class="col-lg-2")
 		br
 		br
 		form(role="form" class="form-horizontal col-lg-12")
 			div(class="form-group")
 				label Event Name: 
-				&nbsp;
-				&nbsp;
+				br
 				input(type='text' ng-model='alertName')
-				&nbsp;
+				br
+				br
 				button(type="button" class="btn btn-primary" ng-click="addAlert($event); alertName='';") Create Event
 		div(class="col-lg-12")
 			table(class="table table-hover")
@@ -24,7 +24,7 @@ div
 						td {{alert.name}}
 						td
 							span(class="glyphicon glyphicon-minus-sign" ng-click="deleteAlert(key, $event)")
-	div(class="col-lg-8" ng-class="{hidden: (selectedRows.length==0)}")
+	div(class="col-lg-10" ng-class="{hidden: (selectedRows.length==0)}")
 		h4 {{selectedRows[1]}} &nbsp;
 			small ID: {{selectedRows[0]}}
 
@@ -38,7 +38,7 @@ div
 		div(ng-class="{hidden: !(visibleTab=='map')}")
 			br
 			div
-				div(hello-maps="" latitude="12.967084" longitude="77.581129" class="google-map" ng-click="showCoordinates($event)" zoom="10")
+				div(hello-maps="" latitude="-20.36" longitude="57.56" class="google-alert-map" ng-click="showCoordinates($event)" zoom="10")
 				div.button-overlay
 					button(type="button" class="btn btn-primary" ng-click="toggleDrawing($event)" ng-class="{disabled: doneDrawingVal}") {{drawText}}
 					&nbsp;
@@ -57,14 +57,14 @@ div
 				label.col-lg-2 Default: 
 				textarea.col-lg-9(ng-model="smsContent.Default" placeholder="Type alert message here...")
 			div.col-lg-12.sms-content
+				label.col-lg-2 Spanish: 
+				textarea.col-lg-9(ng-model="smsContent.DE" placeholder="Type spanish alert message here...")
+			div.col-lg-12.sms-content
 				label.col-lg-2 English: 
 				textarea.col-lg-9(ng-model="smsContent.EN" placeholder="Type english alert message here...")
 			div.col-lg-12.sms-content
 				label.col-lg-2 French: 
 				textarea.col-lg-9(ng-model="smsContent.FR" placeholder="Type french alert message here...")
-			div.col-lg-12.sms-content
-				label.col-lg-2 German: 
-				textarea.col-lg-9(ng-model="smsContent.DE" placeholder="Type german alert message here...")
 			div.col-lg-12.sms-content
 				label.col-lg-2 Norwegian: 
 				textarea.col-lg-9(ng-model="smsContent.NO" placeholder="Type norwegian alert message here...")

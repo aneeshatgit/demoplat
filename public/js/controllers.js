@@ -240,8 +240,14 @@ angular.module('myApp.controllers', []).
         $scope.cellSitesLoaded = true;
         for (var i = 0; i < len; i++) {
           var latLng = new google.maps.LatLng($scope.cellSitesArr[i].lat, $scope.cellSitesArr[i].lng);
-          if(google.maps.geometry.poly.isLocationOnEdge(latLng, polygonOnMap, 0.1) || google.maps.geometry.poly.containsLocation(latLng, polygonOnMap)){
-            $scope.towerCoords.push({lat: latLng.lat(), lng: latLng.lng(), cgi: $scope.cellSitesArr[i].cgi});  
+          if(google.maps.geometry.poly.isLocationOnEdge(latLng, polygonOnMap, 0.05) || google.maps.geometry.poly.containsLocation(latLng, polygonOnMap)){
+            var mLen;
+            if($scope.cellSitesArr[i]['length']==null || $scope.cellSitesArr[i]['length']==0) {
+              mLen=0;
+            } else {
+              mLen = $scope.cellSitesArr[i]['length'];
+            }
+            $scope.towerCoords.push({lat: latLng.lat(), lng: latLng.lng(), cgi: $scope.cellSitesArr[i].cgi, len: mLen});
           }
         }
         $scope.towerCoordsLoaded = true;
@@ -359,7 +365,7 @@ angular.module('myApp.controllers', []).
     });
 
     function checkValidity() {
-      if ($scope.towerCoords!=undefined && $scope.towerCoords.length > 2 && $scope.smsContent.Default!=undefined && $scope.smsContent.Default.trim()!='') {
+      if ($scope.towerCoords!=undefined && $scope.towerCoords.length > 0 && $scope.smsContent.Default!=undefined && $scope.smsContent.Default.trim()!='') {
         $scope.alertSendButtonDisabled = false;         
       } else {
         $scope.alertSendButtonDisabled = true;
@@ -755,6 +761,9 @@ angular.module('myApp.controllers', []).
     }
 
     function loadCellTowers() {
+
+      var tDist = 7500;
+
       var y = polygonOnMap.getPath().getArray();
       var polyBound = commonMethods.getPolyBounds(polygonOnMap.getPath().getArray());
 
@@ -768,14 +777,14 @@ angular.module('myApp.controllers', []).
 
       //north iteration
       //first go west to east then one level up
-      for (var stn=west; (google.maps.geometry.spherical.computeHeading(stn, north)>=-90 && google.maps.geometry.spherical.computeHeading(stn, north)<=90); stn = google.maps.geometry.spherical.computeOffset(stn, 20000, 0)){
-        for (var wte=stn; google.maps.geometry.spherical.computeHeading(wte, east)>0; wte = google.maps.geometry.spherical.computeOffset(wte, 20000, 90)){
+      for (var stn=west; (google.maps.geometry.spherical.computeHeading(stn, north)>=-90 && google.maps.geometry.spherical.computeHeading(stn, north)<=90); stn = google.maps.geometry.spherical.computeOffset(stn, tDist, 0)){
+        for (var wte=stn; google.maps.geometry.spherical.computeHeading(wte, east)>0; wte = google.maps.geometry.spherical.computeOffset(wte, tDist, 90)){
           towerLocArr = checkContainment(wte, polygonOnMap, towerLocArr, towerLocArr.length);
         }
       }
       
-      for (var stn=google.maps.geometry.spherical.computeOffset(west, 20000, 180); (google.maps.geometry.spherical.computeHeading(stn, south)<=-90 || google.maps.geometry.spherical.computeHeading(stn, south)>=90); stn = google.maps.geometry.spherical.computeOffset(stn, 20000, 180)){
-        for (var wte=stn; google.maps.geometry.spherical.computeHeading(wte, east)>0; wte = google.maps.geometry.spherical.computeOffset(wte, 20000, 90)){
+      for (var stn=google.maps.geometry.spherical.computeOffset(west, tDist, 180); (google.maps.geometry.spherical.computeHeading(stn, south)<=-90 || google.maps.geometry.spherical.computeHeading(stn, south)>=90); stn = google.maps.geometry.spherical.computeOffset(stn, tDist, 180)){
+        for (var wte=stn; google.maps.geometry.spherical.computeHeading(wte, east)>0; wte = google.maps.geometry.spherical.computeOffset(wte, tDist, 90)){
           towerLocArr = checkContainment(wte, polygonOnMap, towerLocArr, towerLocArr.length);
         }
       }
@@ -1615,5 +1624,545 @@ angular.module('myApp.controllers', []).
       }
     }
 
-  });
+  }).
 
+  controller('drController', function ($scope, dataMethods, commonMethods) {
+    $scope.mapCenter = null;
+    $scope.selectedRows = [];
+    var centerUrl = "https://versapp.firebaseio.com/mapcenter";
+    dataMethods.getAngularPromise(centerUrl, $scope, 'mapCenter').then(function(){
+      if($scope.mapCenter.lat != undefined && $scope.mapCenter.lng !=undefined){
+        commonMethods.changeMapCenter($scope.mapForScope, $scope.mapCenter.lat, $scope.mapCenter.lng);
+      }
+    });
+
+    $scope.deleteRadio = function(key) {
+      if($scope.selectedRows[0]==key){
+        $scope.selectedRows = [];
+        $scope.radioDetailsShown = false;
+      }
+      delete $scope.radioArr[key];
+    }
+    
+    $scope.selectRadio = function(id, name) {
+      $scope.selectedRows = [];
+      $scope.selectedRows.push(id);
+      $scope.selectedRows.push(name);
+
+      displayRadioDetails();
+    }
+
+    $scope.addStation = function() {
+      var ts = commonMethods.getCurrentTime(true);
+      //UI
+      $scope.selectRadio(ts, $scope.rsName);
+      $scope.radioArr[ts] = {name: $scope.rsName};
+      $scope.rsName = "";
+    }
+
+    //save radio station details.
+    $scope.saveStationDetails = function() {
+      var details = {lat: $scope.lat, lng: $scope.lng, coords: $scope.coords, phoneNumber: $scope.phoneNumber};
+
+      $scope.radioArr[$scope.selectedRows[0]].details = details;
+
+      //display message stating station has been saved.
+      $scope.notifyHide = false;
+    }
+
+    //list of radio stations
+    $scope.radioArr = {};
+    var radioUrl = "https://versapp.firebaseio.com/radio";
+    dataMethods.getAngularPromise(radioUrl, $scope, "radioArr");
+
+    var radioIcon = "images/radio.png"
+    
+    $scope.$watch('mapForScope', function(nv){
+      map = nv;
+      if($scope.mapForScope!=undefined){
+        google.maps.event.addListener($scope.mapForScope, 'click', function(e) {
+          if(marker!=null) {
+            marker.setMap(null);
+          }
+
+          marker = new google.maps.Marker({
+            position: e.latLng,
+            map: map,
+            title: $scope.selectedRows[1],
+            icon: radioIcon
+          });
+
+          $scope.lat = Math.round(e.latLng.lat()*1000)/1000;
+          $scope.lng = Math.round(e.latLng.lng()*1000)/1000
+          $scope.coords = $scope.lat + ", " + $scope.lng;
+
+          $scope.$apply();
+        });
+      }
+    });
+
+
+    var map, marker, circle;
+    function displayRadioDetails() {
+      //clear the existing values
+      $scope.lat = null;
+      $scope.lng = null;
+      $scope.coords = "";
+      $scope.phoneNumber = "";
+
+      //hide any notifications.
+      $scope.notifyHide = true;
+
+      //unhide the div for details
+      $scope.radioDetailsShown = true;
+      //put marker on map based on lat lng
+      if(marker!=null) {
+        marker.setMap(null);
+      }
+
+      if($scope.radioArr[$scope.selectedRows[0]]!=null) {
+        $scope.lat = $scope.radioArr[$scope.selectedRows[0]].details.lat;
+        $scope.lng = $scope.radioArr[$scope.selectedRows[0]].details.lng;
+        $scope.phoneNumber = $scope.radioArr[$scope.selectedRows[0]].details.phoneNumber;
+        $scope.coords = $scope.radioArr[$scope.selectedRows[0]].details.coords;
+      }
+
+      if($scope.lat!=null && $scope.lng!=null) {
+        marker = new google.maps.Marker({
+          position: new google.maps.LatLng($scope.lat,$scope.lng),
+          map: map,
+          title: $scope.selectedRows[1],
+          icon: radioIcon
+        });
+      }
+    }
+    
+  }).
+  controller('dgController', function ($scope, dataMethods, commonMethods) {
+    //get the groups from firebase
+    $scope.groupArr = {};
+    var groupUrl = "https://versapp.firebaseio.com/group";
+    dataMethods.getAngularPromise(groupUrl, $scope, "groupArr");
+
+    //add new group function
+    $scope.addGroup = function() {
+      var ts = commonMethods.getCurrentTime(true);
+      //UI
+      $scope.selectGroup(ts, $scope.groupName);
+      $scope.groupArr[ts] = {name: $scope.groupName};
+      $scope.groupName = "";
+    }
+
+    $scope.deleteGroup = function(key) {
+      if($scope.selectedRows[0]==key){
+        $scope.selectedRows = [];
+        $scope.showGroupDetails = false;
+      }
+      delete $scope.groupArr[key];
+    }
+
+
+    $scope.deleteGroupItem = function(idx) {
+      $scope.groupItemsArr.splice(idx, 1);
+      $scope.groupArr[$scope.selectedRows[0]].members = $scope.groupItemsArr; 
+    }
+
+
+    //select group function
+    $scope.selectGroup = function(id, name) {
+      $scope.selectedRows = [];
+      $scope.selectedRows.push(id);
+      $scope.selectedRows.push(name);
+
+      displayGroupDetails();
+    }
+
+    function displayGroupDetails() {
+      //unhide the div corresponding to details
+      $scope.showGroupDetails = true;
+
+      //initialize group items arr.
+      if($scope.groupArr[$scope.selectedRows[0]]!=null){
+        $scope.groupItemsArr = $scope.groupArr[$scope.selectedRows[0]].members;
+      }
+      if($scope.groupItemsArr == null) {
+        $scope.groupItemsArr = [];
+      }
+    }
+
+
+    //function to add group members
+    $scope.addGroupItem = function() {
+      if($scope.groupItemsArr==null || $scope.groupItemsArr.length==0) {
+        $scope.groupItemsArr=[];
+      }
+      $scope.groupItemsArr.push({name: $scope.groupItem.name, contact: $scope.groupItem.contact});
+
+      //persist to firebase
+      $scope.groupArr[$scope.selectedRows[0]].members = $scope.groupItemsArr;
+      $scope.groupItem.name = "";      
+      $scope.groupItem.contact = "";      
+    }
+
+  }).
+  controller('sgaController', function ($scope, dataMethods, commonMethods, $http) {
+    //get the groups from firebase
+    $scope.groupArr = {};
+    var groupUrl = "https://versapp.firebaseio.com/group";
+    dataMethods.getAngularPromise(groupUrl, $scope, "groupArr");
+
+    var smsList = {};
+    var voiceList = {};
+    $scope.smsCount = 0;
+    $scope.voiceCount = 0;
+    $scope.sms = {};
+    $scope.voice = {};
+
+
+    $scope.log = "";
+    var groupLogUrl = "https://versapp.firebaseio.com/grouplog"
+    $scope.groupLog = {};
+    dataMethods.getAngularPromise(groupLogUrl, $scope, "groupLog").then(function() {
+      createLog();
+    });
+
+    function createLog() {
+      $scope.log = "";
+      for (var n in $scope.groupLog) {
+        $scope.log = $scope.log + n + ": " + $scope.groupLog[n] + "\n";
+      }
+    }
+
+
+    
+    var selectedGroups = [];
+    $scope.createSmsAlertList = function(sms, key) {
+      if(sms) {
+        //add members to sms alert list
+        smsList[key] = $scope.groupArr[key].members;
+        if(selectedGroups.indexOf($scope.groupArr[key].name)==-1){
+          selectedGroups.push($scope.groupArr[key].name);  
+        }
+        
+        if(smsList[key]!=null) {
+          $scope.smsCount = $scope.smsCount + smsList[key].length;  
+        }
+      } else {
+        //remove members to sms alert list
+        if(selectedGroups.indexOf($scope.groupArr[key].name)!=-1){
+          selectedGroups.splice(selectedGroups.indexOf($scope.groupArr[key].name), 1);  
+        }
+
+        if(smsList[key]!=null) {
+          $scope.smsCount = $scope.smsCount - smsList[key].length;  
+        }
+        smsList[key] = null;
+      }
+    }
+
+    $scope.createVoiceAlertList = function(voice, key) {
+      if(voice) {
+        //add members to sms alert list
+        voiceList[key] = $scope.groupArr[key].members;
+        if(selectedGroups.indexOf($scope.groupArr[key].name)==-1){
+          selectedGroups.push($scope.groupArr[key].name);  
+        }
+
+
+        if(voiceList[key]!=null) {
+          $scope.voiceCount = $scope.voiceCount + voiceList[key].length;  
+        }
+      } else {
+        //remove members to sms alert list
+        if(selectedGroups.indexOf($scope.groupArr[key].name)!=-1){
+          selectedGroups.splice(selectedGroups.indexOf($scope.groupArr[key].name), 1);  
+        }
+
+
+        if(voiceList[key]!=null) {
+          $scope.voiceCount = $scope.voiceCount - voiceList[key].length;  
+        }
+        voiceList[key] = null;
+      }
+    }
+
+    $scope.sendGroupAlert = function() {
+      var data = {smsList: smsList, voiceList: voiceList, message: $scope.alert};
+
+      var groups = "";
+      for (var i =0; i< selectedGroups.length; i++) {
+        if (groups=="") {
+          groups = groups + selectedGroups[i];
+        } else {
+          groups = groups + ", " + selectedGroups[i];
+        }
+      }
+
+      //post request to send sms and voice to sms list and voice list
+      $http.post('/sendgroupalert', data).success(function(){
+        $scope.groupLog[commonMethods.getCurrentTime()] = "A group alert was sent to the following groups: " + groups;
+        createLog();
+        console.log('success');
+      }).error(function(){
+        console.log('error');
+      })
+      //update status log
+
+    }
+
+  }).
+  controller('sraController', function ($scope, dataMethods, commonMethods, $http) {
+    $scope.mapCenter = null;
+    var centerUrl = "https://versapp.firebaseio.com/mapcenter";
+    dataMethods.getAngularPromise(centerUrl, $scope, 'mapCenter').then(function(){
+      if($scope.mapCenter.lat != undefined && $scope.mapCenter.lng !=undefined){
+        commonMethods.changeMapCenter($scope.mapForScope, $scope.mapCenter.lat, $scope.mapCenter.lng);
+      }
+    });
+
+    $scope.log = "";
+    var radioLogUrl = "https://versapp.firebaseio.com/radiolog"
+    $scope.radiolog = {};
+    dataMethods.getAngularPromise(radioLogUrl, $scope, "radiolog").then(function() {
+      createLog();
+    });
+
+    function createLog() {
+      $scope.log = "";
+      for (var n in $scope.radiolog) {
+        $scope.log = $scope.log + n + ": " + $scope.radiolog[n] + "\n";
+      }
+    }
+    
+    var polygonCoords = [];
+    var polygon = new google.maps.Polygon();
+    var circleCoords = {};
+    var selectCircle = new google.maps.Circle();
+
+
+    //to enable / disable the send button.
+    $scope.numOfCircles = 0;
+
+    var radioIcon = "images/radio.png"
+    //initialize map with radio stations. 
+    $scope.radioArr = {};
+    var selectedStations = [];
+    var radioUrl = "https://versapp.firebaseio.com/radio";
+
+
+    $scope.clearArea = function() {
+      $scope.numOfCircles = 0;
+      polygonCoords = [];
+      polygon.setMap(null);
+      for (var j in circleCoords) {
+        circleCoords[j].setMap(null);  
+      }
+      circleCoords = {};
+    }
+
+    $scope.sendRadioAlert = function() {
+      //form the number string
+      var num = "";
+      var stations = "";
+      for (var m in circleCoords) {
+        if (circleCoords!=null) {
+          if(num=="") {
+            num = num + $scope.radioArr[m].details.phoneNumber;
+            stations = stations + $scope.radioArr[m].name;
+          } else {
+            num = num + ", " + $scope.radioArr[m].details.phoneNumber;
+            stations = stations + ", " + $scope.radioArr[m].name;
+          }
+        }
+      }
+
+      var data = {message: $scope.alert, numbers: num};
+      $http.post('/sendradioalert', data).success(function(d){
+        $scope.radiolog[commonMethods.getCurrentTime()] = "An alert message was sent to these radio stations: " + stations;
+        createLog();
+      }).error(function(d){
+        console.log('error');
+      })
+    }
+
+
+    $scope.$watch('mapForScope', function(nv) {
+      if(nv==null) {
+        return;
+      }
+      dataMethods.getAngularPromise(radioUrl, $scope, "radioArr").then(function() {
+        //render the map with radio stations
+        for (var i in $scope.radioArr) {
+          var details = $scope.radioArr[i].details;
+          if(details!=null && details.lat!=null && details.lng!=null){
+            var tower = new google.maps.LatLng(details.lat, details.lng);
+            var marker = new google.maps.Marker({
+                position: tower,
+                map: nv,
+                title: $scope.radioArr[i].name, 
+                icon: radioIcon
+            });
+          } 
+        }
+      });
+
+      google.maps.event.addListener($scope.mapForScope, 'click', function(e) {
+        var ll = e.latLng;
+        polygonCoords.push(ll);
+        polygon.setMap(null);
+        polygon = new google.maps.Polygon({
+          paths: polygonCoords,
+          strokeColor: '#FF0000',
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+          fillColor: '#FF0000',
+          fillOpacity: 0.35,
+          map: $scope.mapForScope
+        });
+
+        //check if any radio station is inside.
+        for (var i in $scope.radioArr) {
+          var details = $scope.radioArr[i].details;
+          if(details!=null && details.lat!=null && details.lng!=null){
+            var tc = new google.maps.LatLng(details.lat, details.lng); 
+            if(google.maps.geometry.poly.containsLocation(tc, polygon)){
+              //this tower is inside - make special mark
+              selectCircle = new google.maps.Circle({
+                center: tc,
+                map: $scope.mapForScope,
+                radius: 20000,
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: commonMethods.getRandomColor(),
+                fillOpacity: 0.35,
+              });
+              $scope.circleSelected = true;
+              $scope.numOfCircles++;
+              $scope.$apply();
+              circleCoords[i] = selectCircle;
+
+            } else {
+              if(circleCoords[i]!=null) {
+                circleCoords[i].setMap(null);
+                $scope.numOfCircles--;
+                $scope.$apply();
+                circleCoords[i]=null;
+              }
+            }
+          }
+        }
+      });
+    });
+  }).
+  controller('dtController', function ($scope, dataMethods, commonMethods) {
+    //get the tvs from firebase
+    $scope.tvArr = {};
+    var tvUrl = "https://versapp.firebaseio.com/tv";
+    dataMethods.getAngularPromise(tvUrl, $scope, "tvArr");
+
+    //add new group function
+    $scope.addTv = function() {
+      var ts = commonMethods.getCurrentTime(true);
+      $scope.tvArr[ts] = {name: $scope.tvName, source: $scope.source};
+    }    
+
+    $scope.deleteTv = function(key) {
+      delete $scope.tvArr[key];
+    }
+
+
+  }).
+  controller('staController', function ($scope, dataMethods, commonMethods) {
+    $scope.selected = {};
+    $scope.numOfTvs = 0;
+
+    //get the tvs from firebase
+    $scope.tvArr = {};
+    var tvUrl = "https://versapp.firebaseio.com/tv";
+    dataMethods.getAngularPromise(tvUrl, $scope, "tvArr");
+
+
+
+    $scope.log = "";
+    var tvLogUrl = "https://versapp.firebaseio.com/tvlog"
+    $scope.tvlog = {};
+    dataMethods.getAngularPromise(tvLogUrl, $scope, "tvlog").then(function() {
+      createLog();
+    });
+
+    function createLog() {
+      $scope.log = "";
+      for (var n in $scope.tvlog) {
+        $scope.log = $scope.log + n + ": " + $scope.tvlog[n] + "\n";
+      }
+    }
+
+
+
+    var tvList = {};
+    $scope.createTvAlertList = function(tv, key) {
+      if(tv) {
+        tvList[key] = $scope.tvArr[key].name;
+        $scope.numOfTvs++;
+      } else {
+        tvList[key] = null;
+        $scope.numOfTvs--;
+      }
+    }
+
+    $scope.sendTVAlert = function() {
+      var chosenTvs = ""
+      for (var i in tvList) {
+        if(tvList[i]!=null){
+          $scope.tvArr[i].message = $scope.alert;
+          if(chosenTvs=="") {
+            chosenTvs = chosenTvs + $scope.tvArr[i].name;
+          } else {
+            chosenTvs = chosenTvs + ", " + $scope.tvArr[i].name;
+          }
+        }
+      }
+
+      if(chosenTvs!=""){
+        $scope.tvlog[commonMethods.getCurrentTime()] = "A TV alert message was sent to these operators: " + chosenTvs;
+        createLog();
+      }
+
+    }
+
+  }).
+  controller('tvvController', function ($scope, dataMethods, commonMethods, $routeParams, $timeout) {
+    var tvId = $routeParams.id;
+
+    $scope.showMessage = false;
+
+    //get the tvs from firebase
+    $scope.tv = {};
+    var tvUrl = "https://versapp.firebaseio.com/tv/"+tvId;
+    dataMethods.getAngularPromise(tvUrl, $scope, "tv").then(function() {
+      $scope.source = $scope.tv.source;  
+    });
+
+    var msgUrl = "https://versapp.firebaseio.com/tv/"+tvId+"/message";
+    $scope.message = "";
+    dataMethods.getAngularPromise(msgUrl, $scope, "message")
+
+    $scope.$watch("message", function(nv) {
+      if(nv!=null && nv!="") {
+        $scope.showMessage = true;
+        $timeout(function() { hideMessage(); }, 30000);
+      }
+    });
+
+    function hideMessage() {
+      $scope.showMessage = false;
+      $scope.$apply();
+      $scope.message = "";
+    }
+    
+  }).
+  controller('tvlController', function ($scope, dataMethods, commonMethods) {
+    $scope.tvArr = {};
+    var tvUrl = "https://versapp.firebaseio.com/tv";
+    dataMethods.getAngularPromise(tvUrl, $scope, "tvArr");
+  });

@@ -1,0 +1,27 @@
+.row
+	form(role="form" class="form-horizontal col-lg-12")
+		div(class="form-group")
+			label TV Operator Name: 
+			br
+			input(type='text' ng-model='tvName')
+			br
+			label Source: 
+			br
+			input(type='text' ng-model='source' style="width: 45%")
+			br
+			br
+			button(type="button" class="btn btn-primary" ng-click="addTv()") Add Operator
+.row
+	table(class="table table-hover")
+		thead
+			th Operator Name
+			th
+		tbody
+			tr(ng-if="tvArr=={}") 
+				td No operators found.
+			tr(ng-repeat="(key, tv) in tvArr")
+				//td {{key}}
+				td {{tv.name}}
+				td
+					span(class="glyphicon glyphicon-minus-sign" ng-click="deleteTv(key)")
+

@@ -1,0 +1,24 @@
+.col-md-6
+	.row
+		label Alert Message: 
+		br
+		textarea.col-md-12(rows="5" ng-model="alert") 
+	.row
+		table(class="table table-hover")
+			thead
+				th TV Operator Name
+				th
+			tbody
+				tr(ng-if="tvArr=={}") 
+					td No operators found.
+				tr(ng-repeat="(key, tv) in tvArr" ng-click="selectGroup(key, tv.name)")
+					td {{tv.name}}
+					td 
+						input(type='checkbox' ng-model="selected[key]" ng-click='createTvAlertList(selected[key], key)')
+	.row
+		button.btn.btn-danger(ng-click='sendTVAlert()' ng-class="{disabled: (alert.trim()=='' || numOfTvs==0)}") Send TV Alert
+.col-md-5.col-md-offset-1
+	.row
+		label Alert Log:
+		br
+		textarea(readonly adjust-scroll rows="20" ng-model="log" class="col-lg-11 log-text")

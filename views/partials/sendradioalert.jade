@@ -1,0 +1,16 @@
+.col-md-8
+	.row(style="margin-bottom: 5px")
+		label Alert Message For Radio: 
+		br
+		textarea.col-md-11(rows="5" ng-model="alert") 
+	.row(style="margin-bottom: 5px")
+		div(hello-maps="" latitude="24" longitude="-102.5" class="google-map" zoom="7")
+	.row(style="margin-bottom: 5px")
+		button.btn.btn-primary(ng-click='clearArea()' style="margin-right: 5px") Clear Area
+		button.btn.btn-danger(ng-click='sendRadioAlert()' ng-class="{disabled: (numOfCircles<1 || alert.trim()=='')}") Send Radio Alert
+.col-md-4
+	.row
+		label Radio Alert Log:
+		br
+		textarea(readonly adjust-scroll rows="20" ng-model="log" class="col-lg-11 log-text") 
+
